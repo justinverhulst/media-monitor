@@ -1,0 +1,127 @@
+---
+title: "goodreads_analyses"
+author: "Justin Verhulst"
+date: "2023-01-20"
+output: html_document
+---
+#Inladen libraries, environment opschonen, importeren opgeschoonde dataset
+```{r}
+#Opschonen environment
+rm(list = ls()) 
+
+#Ophalen libraries en opgeschoonde last.fm dataset
+libraries <- readRDS("libraries.rds")
+lapply(libraries, require, character.only = TRUE)
+goodreads <- readRDS("goodreads.rds")
+
+#Mogelijke aanvullende analyses:
+# - gelezen boeken met fill op fictie / non-fictie
+# - Fix aantal gelezen boeken per jaar
+```
+
+#Plot - Aantal boeken per jaar gelezen
+```{r}
+p_ratings_goodreads <- goodreads %>%
+  filter(my_rating > 0) %>%
+  #maak een selectie per jaar
+  group_by(my_rating) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  
+  #maak plot
+  ggplot(aes(x = my_rating, y = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#d93838") +
+  #geom_text(aes(label=count), vjust=0.3, hjust = -0.1) + #eventueel cijfers bij de bars
+
+  #Geef labels mee 
+  labs(x = "Ratings", y = "Aantal boeken", title = "Boeken ratings") +
+ 
+  #Voeg thema toe en maak wat aanpassingen
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  
+  #X en Y as netter maken
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 40), breaks = seq(0, 40, by = 5)) +
+  scale_x_continuous(expand = c(0, 0),limits = c(0, 6), breaks = seq(1, 5, by = 1)) 
+```
+
+
+#Plot -  Aantal boeken per releasejaar gelezen
+```{r}
+#aantal films gezien per releasejaar
+p_boeken_releasejaar <- goodreads %>%
+  
+  #maak een selectie per jaar
+  group_by(original_publication_year) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  
+  #maak plot
+  ggplot(aes(x = original_publication_year, y = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#d93838") +
+  #geom_text(aes(label=count), vjust=0.3, hjust = -0.1) + #eventueel cijfers bij de bars
+
+  #Geef labels mee 
+  labs(x = "", y = "", title = "Aantal boeken gelezen per publicatiejaar ") +
+ 
+  #Voeg thema toe en maak wat aanpassingen
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  
+  #X en Y as netter maken
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 10), breaks = seq(0, 10, by = 1)) +
+  scale_x_continuous(limits = c(1900, 2024), breaks = seq(1900, 2023, by = 20))
+
+```
+
+#Plot -  Aantal boeken gelezen per jaar (werkt niet)
+```{r}
+goodreads_prep <- goodreads %>%
+  mutate(jaar_gelezen = date_read)%>% 
+  #maak een selectie per jaar
+  group_by(jaar_gelezen) %>% 
+  summarise(count = n(), jaar_gelezen) %>% 
+  arrange(desc(count))%>%
+  mutate(count = 1)
+
+#maak de plot:
+p_boeken_jaar <- ggplot(goodreads_prep, aes(y=count, x=jaar_gelezen)) + 
+    geom_bar(position="stack", stat="identity") +
+  labs(x = "", y = "", title = "Aantal boeken gelezen per jaar") +
+  theme_bw() +
+  
+  theme(plot.title = element_text(hjust = 0.5), legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold"))+
+  
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 20), breaks = seq(0, 20, by = 2)) 
+  scale_x_discrete(limits = c(2018, 2023), breaks = seq(2019, 2023, by = 1)) 
+```
+#Laatste 5 gelezen boeken
+```{r}
+#laatste 5 gelezen boeken
+last_read_books<- top_n(goodreads, 5)
+
+```
+
+#Plots exporteren
+```{r}
+#Exporteren met meerdere visuals in 1 overzicht 
+plot.list <- list(
+                  p_boeken_releasejaar,
+                  p_ratings_goodreads
+                  )
+layout_mat<-rbind(c(1,2),
+                  c(3,4)
+                  )
+
+plots<-marrangeGrob(plot.list, layout_matrix=layout_mat)
+ggsave( filename="plots_boeken_small.pdf", plots, width=29.7, height=21, units="cm")
+
+#Exporteren 1 visual per pagina
+pdf("plots_boeken_large.pdf")
+
+p_boeken_releasejaar
+p_ratings_goodreads
+
+dev.off()
+
+```

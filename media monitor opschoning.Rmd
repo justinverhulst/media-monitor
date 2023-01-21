@@ -1,0 +1,103 @@
+---
+title: "media monitor opschoning"
+author: "Justin Verhulst"
+date: "2023-01-07"
+output: html_document
+---
+#Inladen libraries, openstaande analyses
+```{r}
+#Schoon environment op
+rm(list = ls()) 
+
+#libraries in een variabele opslaan
+libraries <- c("dplyr","ggplot2", "lubridate","tidyr","janitor","zoo","readxl","gridExtra","rlang","httr","jsonlite","scrobbler","hms","gganimate","gifski" )
+
+#opslaan en inladen dataset libraries 
+saveRDS(libraries, 'libraries.rds')
+lapply(libraries, require, character.only = TRUE)
+
+#Acties
+# - Maak wat mooiere, uniekere visuals. Voor inspiratie zie data viz boek. 
+
+```
+
+#Inladen datasets
+```{r}
+#inladen datasets
+moviemeter <- read.csv("moviemeter_export.csv") #bron: moviemeter export
+imdb <- read.csv("ratings.csv") #bron: https://www.imdb.com/user/ur24106724/ratings --- of via API mogelijk?
+goodreads <- read.csv("goodreads_library_export.csv") #bron: https://www.goodreads.com/review/import
+
+#Last.FM inladen - #ONDERSTAANDE CODE RUNNEN ALS JE GEUPDATE BATCH WILT
+#apiSecret <- "0d44d5a2a8b0917a8b11197b49f576ee"
+#lastfm <- download_scrobbles(username = "Justin257", api_key = "a1f929da60ac7498d8bc6e4081fc3f8b")
+#write.csv(lastfm, file = "lastfm.csv") 
+lastfm <- read.csv("lastfm.csv") #HIERMEE HAAL JE EEN OUDERE BATCH OP, GAAT SNELLER
+```
+
+#LAST FM OPSCHONING
+```{r}
+#converteer alle datums met 1970 naar 2008
+#lastfm$date_unix <- ifelse(lastfm$date_unix < 15000, 1199142000, lastfm$date_unix)
+
+#convert naar date en time
+#lastfm$date_unix <- as.POSIXct(lastfm$date_unix, origin="1970-01-01")
+
+#relevante data selecteren, opschonen etc. 
+lastfm <- lastfm %>%
+  mutate(date_unix = ifelse(date_unix < 15000, 1199142000, date_unix ), #Converteer alle datums met 1970 naar 2008
+         date_unix = as.POSIXct(date_unix, origin = "1970-01-01"))%>% #converteer naar date en time
+  clean_names() %>%
+  select(song_title, artist, album, date = date_unix) %>%
+  mutate(artist = ifelse(artist == "Marina", "Marina and the Diamonds", artist)) #Marina and the Diamonds moet onder 1 naam
+
+#opslaan dataset
+saveRDS(lastfm, 'lastfm.rds')
+```
+
+#IMDB EN MOVIEMETER OPSCHONING
+```{r}
+#moviemeter: opschonen, relevante rijen selecteren
+moviemeter <- moviemeter%>%
+  clean_names() %>%
+  mutate(geplaatst = as_date(geplaatst)) %>%
+  select(imdb_code = im_db_code,titel, jaar, geplaatst)
+
+#imdb: opschonen, relevante rijen selecteren
+imdb <- imdb%>%
+  clean_names()%>%
+  rename(imdb_code = const)%>%
+  mutate(date_rated = as_date(date_rated)) %>%
+  select(-url) %>%
+  #fix title_type
+  mutate(title_type = ifelse(title_type == "video", "movie",title_type)) %>%
+  mutate(title_type = ifelse(title_type == "tvMiniSeries", "tvSeries",title_type)) %>%
+  mutate(title_type = ifelse(title_type == "tvMovie", "movie",title_type)) %>%
+  mutate(title_type = ifelse(title_type == "tvSpecial", "movie",title_type)) 
+  
+#voeg moviemeter en imdb samen in 1 bestand
+imdb <- merge(imdb, moviemeter, by = "imdb_code",all=T)
+
+#alleen boeiende kolommen bewaren en fix datum geplaatste stem
+imdb <- imdb %>% 
+  
+  #Eerst mutate naar character, daarna weer naar date... anders werkt het niet
+mutate(date_rated = ifelse(is.na(geplaatst), as.character(date_rated), as.character(geplaatst))) %>%
+select(-titel,-jaar,-geplaatst) %>%
+mutate(date_rated = as_date(date_rated))
+
+#opslaan dataset
+saveRDS(imdb, 'imdb.rds')
+ 
+```
+
+#GOODREADS OPSCHONING
+```{r}
+#relevante data selecteren, opschonen etc. 
+goodreads <- goodreads%>%
+  clean_names() %>%
+  select(title,author, my_rating,average_rating,number_of_pages,original_publication_year,bookshelves,read_count, date_read)
+
+#opslaan dataset
+saveRDS(goodreads, 'goodreads.rds')
+```

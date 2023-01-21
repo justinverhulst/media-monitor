@@ -1,0 +1,447 @@
+---
+title: "lastfm_analyses"
+author: "Justin Verhulst"
+date: "2023-01-20"
+output: html_document
+---
+
+#Inladen libraries, environment opschonen, importeren opgeschoonde dataset
+```{r}
+#Opschonen environment
+rm(list = ls()) 
+
+#Ophalen libraries en opgeschoonde last.fm dataset
+libraries <- readRDS("libraries.rds")
+lapply(libraries, require, character.only = TRUE)
+lastfm <- readRDS("lastfm.rds")
+
+#Mogelijk aanvullende analyses:
+# - welke dag van de week luister ik het meest?
+# - Welk tijdstip luister ik het meest?
+# - Welke genres luister ik het meest? Voor genres kun je koppelen aan spotify API?
+# - Zorg dat de X en Y as dynamisch is. Zodat als ik een week of maand minder of meer heb geluisterd het er toch goed uitziet
+```
+
+#Plots - meest beluisterde artiesten
+```{r}
+
+#### POPULAIRSTE ARTIESTEN AFGELOPEN 7 DAGEN ####
+
+p_top_artists_7days <- lastfm %>%
+  
+  #selecteer timeframe:
+  filter(date >= today()-7)%>%
+  
+  #maak een selectie van de top artiesten
+  group_by(artist) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  top_n(10) %>%
+  
+  #maak plot
+  ggplot(aes(x = reorder(artist, count), y = count, label = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#2596be") +
+  coord_flip() +
+
+  #Labels, opmaak etc. 
+  labs(x = "", y = "", title = "Meest beluisterde artiesten afgelopen 7 dagen") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 150), breaks = seq(0, 150, by = 10)) 
+
+
+
+#### POPULAIRSTE ARTIESTEN AFGELOPEN 30 DAGEN ####
+
+p_top_artists_30days <- lastfm %>%
+  
+  #selecteer timeframe:
+  filter(date >= today()-30)%>%
+  
+  #maak een selectie van de top artiesten
+  group_by(artist) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  top_n(10) %>%
+  
+  #maak plot
+  ggplot(aes(x = reorder(artist, count), y = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#2596be") +
+  coord_flip() +
+
+  #Labels, opmaak etc.
+  labs(x = "", y = "", title = "Meest beluisterde artiesten afgelopen 30 dagen") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 100), breaks = seq(0, 100, by = 10)) 
+
+
+
+#### POPULAIRSTE ARTIESTEN AFGELOPEN 356 DAGEN ####
+
+p_top_artists_365days <- lastfm %>%
+  
+  #selecteer timeframe:
+  filter(date >= today()-365)%>%
+  
+  #maak een selectie van de top artiesten
+  group_by(artist) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  top_n(10) %>%
+  
+  #maak plot
+  ggplot(aes(x = reorder(artist, count), y = count, label = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#2596be") +
+  coord_flip() +
+
+  #Labels, opmaak etc.
+  labs(x = "", y = "", title = "Meest beluisterde artiesten afgelopen 365 dagen") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 1000), breaks = seq(0, 1000, by = 100)) 
+
+
+
+#### POPULAIRSTE ARTIESTEN ALLERTIJDEN ####
+
+p_top_artists_alltime <- lastfm %>%
+  
+  #maak een selectie van de top artiesten
+  group_by(artist) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  top_n(20) %>%
+  
+  #maak plot
+  ggplot(aes(x = reorder(artist, count), y = count, label = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#2596be") +
+  coord_flip() +
+
+  #Labels, opmaak etc. 
+  labs(x = "", y = "", title = "Meest beluisterde artiesten allertijden") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 8000), breaks = seq(0, 8000, by = 1000)) 
+
+```
+
+#Plots - meest beluisterde nummers
+```{r}
+
+################################################################
+#Horizontale barchart met poplairste nummers afgelopen 7 dagen
+################################################################
+
+p_top_songs_7days <- lastfm %>%
+  
+  #maak eerst kolom met artiest + liedje
+  mutate(artist_and_song = paste(artist,"-", song_title))%>%
+  
+  #selecteer timeframe:
+  filter(date >= today()-7)%>%
+  
+  #maak een selectie van de top artiesten
+  group_by(artist_and_song) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  top_n(10) %>%
+  
+  #maak plot
+  ggplot(aes(x = reorder(artist_and_song, count), y = count, label = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#33b069") +
+  #geom_text(aes(label=count), vjust=0.3, hjust = -0.1) + #eventueel cijfers bij de bars
+  
+  #Het moet een horizontale barchart zijn
+  coord_flip() +
+
+  #Geef labels mee 
+  labs(x = "", y = "", title = "Meest beluisterde nummers afgelopen 7 dagen") +
+ 
+  #Voeg thema toe en maak wat aanpassingen
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  
+  #X en Y as netter maken
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 40), breaks = seq(0, 40, by = 5)) 
+
+################################################################
+#Horizontale barchart met poplairste nummers afgelopen 30 dagen
+################################################################
+
+p_top_songs_30days <- lastfm %>%
+  
+  #maak eerst kolom met artiest + liedje
+  mutate(artist_and_song = paste(artist,"-", song_title))%>%
+  
+  #selecteer timeframe:
+  filter(date >= today()-30)%>%
+  
+  #maak een selectie van de top artiesten
+  group_by(artist_and_song) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  top_n(10) %>%
+  
+  #maak plot
+  ggplot(aes(x = reorder(artist_and_song, count), y = count, label = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#33b069") +
+  #geom_text(aes(label=count), vjust=0.3, hjust = -0.1) + #eventueel cijfers bij de bars
+  
+  #Het moet een horizontale barchart zijn
+  coord_flip() +
+
+  #Geef labels mee 
+  labs(x = "", y = "", title = "Meest beluisterde nummers afgelopen 30 dagen") +
+ 
+  #Voeg thema toe en maak wat aanpassingen
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  
+  #X en Y as netter maken
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 50), breaks = seq(0, 50, by = 5))
+
+################################################################
+#Horizontale barchart met poplairste nummers afgelopen 356 dagen
+################################################################
+
+p_top_songs_365days <- lastfm %>%
+  
+  #maak eerst kolom met artiest + liedje
+  mutate(artist_and_song = paste(artist,"-", song_title))%>%
+  
+  #selecteer timeframe:
+  filter(date >= today()-365)%>%
+  
+  #maak een selectie van de top artiesten
+  group_by(artist_and_song) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  top_n(10) %>%
+  
+  #maak plot
+  ggplot(aes(x = reorder(artist_and_song, count), y = count, label = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#33b069") +
+  #geom_text(aes(label=count), vjust=0.3, hjust = -0.1) + #eventueel cijfers bij de bars
+  
+  #Het moet een horizontale barchart zijn
+  coord_flip() +
+
+  #Geef labels mee 
+  labs(x = "", y = "", title = "Meest beluisterde nummers afgelopen jaar") +
+ 
+  #Voeg thema toe en maak wat aanpassingen
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  
+  #X en Y as netter maken
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 150), breaks = seq(0, 150, by = 25))
+
+################################################################
+#Horizontale barchart met poplairste nummers afgelopen 7 dagen
+################################################################
+
+p_top_songs_alltime <- lastfm %>%
+  
+  #maak eerst kolom met artiest + liedje
+  mutate(artist_and_song = paste(artist,"-", song_title))%>%
+  
+  #selecteer timeframe:
+  #filter(date >= today()-7)%>% #geen timeframe nodig voor altijd
+  
+  #maak een selectie van de top artiesten
+  group_by(artist_and_song) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count)) %>% 
+  top_n(10) %>%
+  
+  #maak plot
+  ggplot(aes(x = reorder(artist_and_song, count), y = count, label = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#33b069") +
+  #geom_text(aes(label=count), vjust=0.3, hjust = -0.1) + #eventueel cijfers bij de bars
+  
+  #Het moet een horizontale barchart zijn
+  coord_flip() +
+
+  #Geef labels mee 
+  labs(x = "", y = "", title = "Meest beluisterde nummers allertijden") +
+ 
+  #Voeg thema toe en maak wat aanpassingen
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  
+  #X en Y as netter maken
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 200), breaks = seq(0, 200, by = 25))
+
+```
+
+#Bar Chart Race - best beluisterde nummers over de jaren
+```{r}
+#columns met datum per jaar
+lastfm <- lastfm%>%mutate(jaar = year(date))
+
+#per jaar groeperen
+lastfm_per_jaar <- lastfm %>%
+  group_by(artist, jaar) %>%
+  summarise(count = n()) %>%
+  mutate(cumulatief = cumsum(count))
+
+lastfm_formatted <- lastfm_per_jaar %>%
+  filter(jaar < 2023)%>%
+  group_by(jaar) %>% # The * 1 makes it possible to have non-integer ranks while sliding
+  mutate(rank = rank(-cumulatief),
+         Value_rel = cumulatief/cumulatief[rank==1],
+         Value_lbl = paste0(" ",round(cumulatief))) %>%
+  group_by(artist) %>%
+  filter(rank <=10) %>%
+  ungroup()
+
+staticplot = ggplot(lastfm_formatted, aes(rank, group = artist,
+                fill = as.factor(artist), color = as.factor(artist))) +
+  geom_tile(aes(y = cumulatief/2,
+                height = cumulatief,
+                width = 0.9), alpha = 0.8, color = NA) +
+  geom_text(aes(y = 0, label = paste(artist, " "), fontface = "bold"), vjust = 0.2, hjust = 1) +
+  geom_text(aes(y=cumulatief,label = Value_lbl, hjust=0)) +
+  coord_flip(clip = "off", expand = FALSE) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_reverse() +
+  guides(color = FALSE, fill = FALSE) +
+  theme(#axis.line=element_blank(),
+        #axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+         axis.title.y=element_blank(),
+        legend.position="none",
+        panel.background=element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        panel.grid.major.x = element_line( size=.1, color="grey" ),
+        panel.grid.minor.x = element_line( size=.1, color="grey" ),
+        plot.title=element_text(size=25, hjust=0.5, face="bold", colour="black", vjust=-1),
+        plot.subtitle=element_text(size=18, hjust=0.5, face="italic", color="black"),
+        plot.caption =element_text(size=8, hjust=0.5, face="italic", color="black"),
+        plot.background=element_blank(),
+       plot.margin = margin(4,4, 4, 6, "cm"))
+
+anim = staticplot + transition_states(jaar, transition_length = 4, state_length = 1, wrap = FALSE) +
+  view_follow(fixed_x = TRUE)  +
+  labs(title = 'Meest beluisterde artiesten [{closest_state}]')
+
+#Als GIF animeren
+# animate(anim, 500, fps = 20,  width = 1200, height = 1000, rewind = FALSE,
+#         renderer = gifski_renderer("gganim.gif", loop = FALSE), start_pause = 40)
+
+```
+#Aantal nummers geluisterd per uur en jaar etc (werkt nog niet helemaal lekker)
+```{r}
+
+#######################
+###NUMMERS PER JAAR####
+#######################
+
+p_frequency_year <- lastfm %>%
+  mutate(year = year(date)) %>%
+  
+  #selecteer timeframe:
+  filter(year > 1970)%>% #nummers die geen time stamp hebben nemen we niet mee
+  
+  #maak een selectie van de top artiesten
+  group_by(year) %>% 
+  summarise(count = n()) %>% 
+  
+  #maak plot
+  ggplot(aes(x = year, y = count)) + 
+  geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#db9627") +
+  #geom_text(aes(label=count), vjust=0.3, hjust = -0.1) + #eventueel cijfers bij de bars
+
+  #Geef labels mee 
+  labs(x = "", y = "", title = "Aantal nummers geluisterd per jaar") +
+ 
+  #Voeg thema toe en maak wat aanpassingen
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold")) + 
+  
+  #X en Y as netter maken
+  scale_y_continuous(expand = c(0, 0),limits = c(0, 9000), breaks = seq(0, 9000, by = 1000)) +
+  scale_x_continuous(limits = c(2008, 2024), breaks = seq(2009, 2023, by = 1))
+p_frequency_year
+
+#######################
+###NUMMERS PER UUR####
+#######################
+
+# #aparte time kolom aanmaken
+# lastfm$time <- format(as.POSIXct(lastfm$date),   # Extract hours, minutes & seconds
+#                  format = "%H:%M:%S")
+# 
+# #converteer time naar hms zodat ik berekeningen kan doen
+# lastfm$time <- as_hms(lastfm$time) 
+# 
+# 
+# #onderstaand werkt nog niet goed... kijk later naar!
+# 
+# 
+# p_time <- lastfm %>%
+# 
+#   #selecteer timeframe:
+#   filter(date > 1970)%>% #nummers die geen time stamp hebben nemen we niet mee
+#   
+#   #maak een selectie van de uren waarop geluisterd werd
+#   group_by(as.numeric(hour(date))) %>% 
+#   summarise(count = n()) %>% 
+#   
+#   #maak plot
+#   ggplot(aes(x = as.numeric(hour(date)), y = count)) + 
+#   geom_bar(stat = "identity", position = "dodge", color = "black",fill = "#db9627") +
+#   #geom_text(aes(label=count), vjust=0.3, hjust = -0.1) + #eventueel cijfers bij de bars
+# 
+#   #Geef labels mee 
+#   labs(x = "", y = "", title = "Aantal nummers geluisterd per jaar") +
+#  
+#   #Voeg thema toe en maak wat aanpassingen
+#   theme_bw() +
+#   theme(plot.title = element_text(hjust = 0.5), legend.position = c(0.9, 0.5),legend.title = element_blank(), panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks.x = element_blank(),axis.ticks.y = element_blank(), axis.text = element_text(face="bold"))  
+#  p_time 
+#   #X en Y as netter maken
+# #  scale_y_continuous(expand = c(0, 0),limits = c(0, 9000), breaks = seq(0, 9000, by = 1000)) +
+# #  scale_x_continuous(limits = c(2008, 2024), breaks = seq(2009, 2023, by = 1))
+
+
+
+```
+#Plots exporteren
+```{r}
+#Exporteren met meerdere visuals in 1 overzicht 
+plot.list <- list(p_top_artists_7days,
+                  p_top_artists_30days,
+                  p_top_artists_365days,
+                  p_top_artists_alltime,
+                  p_top_songs_7days,
+                  p_top_songs_30days,
+                  p_top_songs_365days,
+                  p_top_songs_alltime
+                  )
+layout_mat<-rbind(c(1,2),
+                  c(3,4)
+                  )
+
+plots<-marrangeGrob(plot.list, layout_matrix=layout_mat)
+ggsave(filename="plots_muziek_small.pdf", plots, width=29.7, height=21, units="cm")
+
+#Exporteren 1 visual per pagina
+pdf("plots_muziek_large.pdf")
+
+p_top_artists_7days
+p_top_artists_30days
+p_top_artists_365days
+p_top_artists_alltime
+p_top_songs_7days
+p_top_songs_30days
+p_top_songs_365days
+p_top_songs_alltime
+
+dev.off()
+```
